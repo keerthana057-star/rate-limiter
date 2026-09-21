@@ -1,139 +1,176 @@
-Distributed Redis-Backed API Rate Limiter
+Redis-Backed API Rate Limiter
 
-A Rate Limiter is a backend system component that controls how many requests a user or client can make within a specific time period. If the request stays within the allowed limit, it is accepted. If the limit is exceeded, the request is temporarily rejected.
+A Java-based API Rate Limiter built using the Token Bucket algorithm and Redis to control request rates and protect backend services from excessive traffic.
 
-Why This Project?
+Project Goal
 
-Modern backend systems receive large volumes of requests continuously. Without proper traffic control, excessive requests can overload servers, increase latency, and affect system stability.
+The goal of this project is to understand how rate limiting works in distributed systems and how shared rate-limit state can be maintained across multiple application instances.
 
-This project helps understand:
+The project focuses on:
 
-* Backend traffic control
-* Request throttling
-* Scalability
-* Distributed systems fundamentals
+* Token Bucket algorithm
+* Token refill logic
+* Request consumption
+* Allow / Reject decisions
+* Redis-based shared state
+* Atomic operations
+* Redis Lua scripting
+* TTL and key expiration
+* HTTP 429 responses
+* Redis failure handling
+* Unit, concurrency, and integration testing
 
-Problem Statement
+🏗️ Architecture
 
-Imagine an Instagram-like system receiving millions of requests continuously.
+```text
+                  Client
+                     │
+                  Request
+                     │
+          Request Filter / Interceptor
+                     │
+                     ▼
+            Rate Limiter Service
+                     │
+              Check Rate Limit
+                     │
+                     ▼
+                  Redis
+             Client Bucket State
+                     │
+              Atomic Operation
+                     │
+                Redis Lua
+                     │
+              ┌──────┴──────┐
+              │             │
+            ALLOW         REJECT
+              │             │
+              ▼             ▼
+           Backend       HTTP 429
+                         + Headers
+```
 
-If users or bots send unlimited requests:
+ 🪣 Token Bucket Flow
 
-* Servers can become overloaded
-* API latency can increase
-* System stability can be affected
-* Backend resources can be exhausted
+```text
+Request
+   ↓
+Identify Client
+   ↓
+Get Bucket State
+   ↓
+Calculate Elapsed Time
+   ↓
+Refill Tokens
+   ↓
+Check Available Tokens
+   ↓
+Token Available?
+   ├── YES → Consume Token → ALLOW
+   │
+   └── NO  → REJECT → HTTP 429
+```
 
-The system needs a mechanism to restrict excessive requests within a specific time period.
+🧩 Components
 
-Solution
+1. Rate Limiter Configuration
+2. Token Bucket
+3. Token Refill Logic
+4. Token Consumption
+5. Allow / Reject Decision
+6. Redis Connection
+7. Redis Key & State Storage
+8. Atomicity / Race Condition Handling
+9. Redis Lua Script
+10. TTL / Key Expiration
+11. Rate Limiter Service
+12. Request Filter / Interceptor
+13. HTTP 429 + Rate-Limit Headers
+14. Redis Failure Handling
+15. Unit & Concurrency Testing
+16. Integration Testing
 
-The Rate Limiter tracks requests from each user and determines whether a new request should be allowed or rejected based on the configured rate limit.
+🛠️ Tech Stack
+
+* Java
+* Maven
+* Redis
+* Redis Lua
+* REST APIs
+* HTTP
+* Concurrency
+* Data Structures
+
+🔐 Key Design Concepts
+
+ Token Bucket
+
+Each client has a bucket with:
+
+* Maximum capacity
+* Current token count
+* Token refill rate
+* Last refill timestamp
+
+Redis
+
+Redis stores the shared bucket state so that multiple application instances can enforce the same rate limit.
+
+Atomicity
+
+Rate-limit state updates must be atomic to prevent multiple concurrent requests from consuming the same token incorrectly.
+
+Lua Script
+
+Redis Lua scripting is used to perform the rate-limit check and state update as one atomic operation.
+
+TTL
+
+Inactive client keys are automatically removed from Redis after their TTL expires.
+
+Request Decision
 
 ```text
 Request
    ↓
 Rate Limiter
    ↓
-Check Request Limit
-   ↓
-Within Limit?
-   ├── YES → Allow Request
-   └── NO  → Reject Request
+Token Available?
+   │
+   ├── Yes → Consume Token → Continue Request
+   │
+   └── No  → HTTP 429 Too Many Requests
 ```
 
-High-Level Workflow
+🧪 Testing
 
-```text
-Client Request
-      ↓
-Rate Limiter
-      ↓
-Request Tracking
-      ↓
-Rate Limit Check
-      ↓
-Allow / Reject
-      ↓
-Backend Service
-```
+The project will include:
 
-Example Workflow
+* Unit testing
+* Token refill testing
+* Allow / reject testing
+* Concurrent request testing
+* Redis integration testing
+* End-to-end integration testing
 
-```text
-Keerthu sends API request
-        ↓
-Rate Limiter
-        ↓
-Check requests in the configured time window
-        ↓
-Count = 2 / Limit = 3
-        ↓
-Allow Request ✓
-```
+ 🚧 Project Status
 
-Core Components
+In Development:
 
-Client Request — Incoming API request from a user.
-Rate Limiter — Decides whether a request should be allowed or rejected.
-Request Tracking Store — Stores request counts or timestamps.
-Time Window — Defines the duration over which requests are limited.
-Rate Limit Policy — Defines the maximum number of allowed requests.
-Allow Flow— Forwards valid requests to the backend service.
-Reject Flow — Blocks requests when the limit is exceeded.
-Cleanup Logic — Removes expired request data.
+The project is being implemented component-by-component, with each component understood, implemented, tested, and integrated into the complete rate-limiting system.
 
-Data Structures Used
+Learning Objective
 
-* HashMap
-* Queue / Deque
+This project is primarily built as a hands-on learning project to understand:
 
-Important Edge Cases
+* Rate-limiting algorithms
+* Distributed state management
+* Concurrency
+* Race conditions
+* Atomic operations
+* Redis
+* API-level protection
+* Fault handling
 
-* Burst traffic
-* Concurrent requests
-* Expired data cleanup
-* Time boundary handling
-
-Failure Scenarios
-
-* System crash / restart
-* Concurrency issues
-* Distributed counter mismatch
-
-Where It Is Used
-
-* API systems
-* Login systems
-* Social media platforms
-* Payment systems
-* Cloud services
-
-Scaling Approach
-
-To scale the Rate Limiter:
-
-* Move request tracking from local memory to a distributed cache
-* Share request state across multiple servers
-* Keep application servers stateless
-
-Implementation Coding Parts
-
-* RateLimiter
-* Request Store
-* Rate Limit Policy
-* `allowRequest()`
-* Time Window Logic
-* Request Counter Logic
-* Reject Request Logic
-* Cleanup / Expiry Logic
-
-Final Goal
-
-Build a backend traffic-control system that demonstrates:
-
-* Request throttling
-* Backend scalability
-* Traffic management
-* Distributed systems fundamentals
 
